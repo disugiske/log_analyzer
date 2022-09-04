@@ -11,18 +11,18 @@ import logging
 import ast
 import gzip
 import itertools
+import os
 import re
 import sys
+import traceback
+from datetime import datetime
+from operator import itemgetter
 from string import Template
 from optparse import OptionParser
 from pathlib import Path, PurePath
 from statistics import mean, median
 
-config = {
-    "REPORT_SIZE": 1000,
-    "REPORT_DIR": "./reports",
-    "LOG_DIR": "./log"
-}
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -39,7 +39,6 @@ def float_cut(obj):
 
 
 def options_parse():
-
     parser = OptionParser()
     parser.add_option('--config', '-c',
                       dest="log_dir",
@@ -49,43 +48,71 @@ def options_parse():
                            '"LOG_DIR": "./log"}',
                       )
     (options, args) = parser.parse_args()
-    if options.log_dir:
-        logger.info(f'Передан путь к файлу config:{options.log_dir}')
-        try:
+
+    try:
+        config = {
+            "REPORT_SIZE": 1000,
+            "REPORT_DIR": "./reports",
+            "LOG_DIR": "./log"
+        }
+        if options.log_dir:
+            logger.info(f'Передан путь к файлу config:{options.log_dir}')
             file = open(options.log_dir, "r")
             conf = file.read()
-            config = ast.literal_eval(conf)
+            parse_config = ast.literal_eval(conf)
+            if parse_config.values() == config.values():
+                pass
+            else:
+                for i in parse_config:
+                    config[i] = parse_config[i]
             logger.info('Файл config успешно прочитан')
             return config
-        except PermissionError:
-            logger.error('Не хватает прав доступа чтобы отрыть файл config')
+        else:
+            return config
+    except PermissionError:
+        logger.error('Не хватает прав доступа чтобы отрыть файл config')
+        exit()
+    except FileNotFoundError:
+        logger.error('Файл не найден, неверный путь или имя файла config')
+        exit()
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
+        exit()
 
-            exit()
-        except FileNotFoundError:
-            logger.error('Файл не найден, неверный путь или имя файла config')
+def open_file(config):
+    data = {}
+    directory = Path(config["LOG_DIR"])
+    try:
+        for logs_file in directory.glob('nginx-access-ui.log-*.gz'):
+            data_name = re.search(r"\d\d\d\d\d\d\d\d", logs_file.as_posix())
+            data[logs_file.as_posix()] = data_name.group(0)
+        file_data = sorted(data.items(), key=itemgetter(1), reverse=True)[0]
+        path_file = file_data[0]
+        data_file_raw = file_data[1]
+        data_file = f'{data_file_raw[:4]}.{data_file_raw[4:6]}.{data_file_raw[6:]}'
 
-            exit()
-        except Exception as e:
-            logger.error(f'Ошибка: {e}')
-            exit()
+        for reports in Path(config["REPORT_DIR"]).glob("report-*.html"):
+            data_report = re.search(r"\d\d\d\d.\d\d.\d\d", reports.as_posix())
+            if data_report.group(0)==data_file:
+                logger.exception('Отчёт на сегодня уже готов! Скрипт завершён')
+                exit(0)
+        return path_file, data_file
+    except FileNotFoundError:
+        logger.error('Файл логов не найден')
+        exit()
+    except Exception as e:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
+        exit()
 
 
-def parser(config):
+def parser():
     result, urls = [], []
     all_requests, all_times = 0, 0
     count = {}
-    try:
-        path = sorted(Path(config["LOG_DIR"]).glob('nginx-access-ui.log-*.gz'))
-        path = (PurePath(path[0]))
-        logger.info(f'Файл логов {path} найден')
-    except FileNotFoundError:
-        logger.error('Файл логов не найден')
-
-        exit()
-    except Exception as e:
-        logger.error(f'Ошибка: {e}')
-
-        exit()
+    config = options_parse()
+    path, data_file = open_file(config)
     try:
         with gzip.open(path, 'rt') as data_log:
             logger.info('Открыт файл лог отчета')
@@ -94,19 +121,16 @@ def parser(config):
             logger.info(f'Файл {path} упешно открыт и прочитан')
     except UnicodeEncodeError:
         logger.error('Ошибка кодировки файла логов')
-
         exit()
     except EOFError:
         logger.error('Неожиданный конец файла логов')
-
         exit()
     except PermissionError:
         logger.error('Не хватает прав доступа чтобы отрыть файл логов')
-
         exit()
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
     try:
         first_parse = re.findall(r"(GET /\S*|POST /\S*)+ +.+ +(\d\.\d{3})", logs)
@@ -126,14 +150,15 @@ def parser(config):
                 exit()
     except StopIteration:
         logger.error('В файле логов изменён синтаксис, не найдены $request или $request_time')
-
         exit()
+
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
-    sorted_count = dict(sorted(count.items(), key=lambda x: len(x[1]), reverse=True))
+
     try:
+        sorted_count = dict(sorted(count.items(), key=lambda x: len(x[1]), reverse=True))
         for i in itertools.islice(sorted_count, 0, int(config["REPORT_SIZE"]) - 1):
             urls_count = len(count[i])
             sum_time = ((urls_count / all_requests) * 100)
@@ -148,18 +173,18 @@ def parser(config):
                 "time_med": float_cut(median(count[i]))
             })
         logger.info('Данные из лог файла преобразованны в json')
+        return result, data_file, config
     except StopIteration:
         logger.error('Ошибка итерации, возможно REPORT_SIZE больше чем количество запросов')
-
         exit()
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
-    return result
 
 
-def write_report(result):
+
+def write_report(result,data_file, config):
     try:
         with open('report.html', 'r') as template_report:
             report = template_report.read()
@@ -171,31 +196,29 @@ def write_report(result):
         print('Не найден файл шаблона report.html')
         exit()
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-        print(f'Ошибка: {e}')
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
     try:
-        with open('report2.html', 'w') as report_out:
+        with open(f'{config["REPORT_DIR"]}/report-{data_file}.html', 'w') as report_out:
             report_out.write(a)
             logger.info('Отчёт сохранён')
     except FileExistsError:
         logger.error('Ошибка создания файла отчёта')
-        print('Ошибка создания файла отчёта')
         exit()
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-        print(f'Ошибка: {e}')
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
 
 if __name__ == "__main__":
     try:
-        a = parser(options_parse())
-        write_report(a)
+        result, data_file, config = parser()
+        write_report(result, data_file, config)
     except KeyboardInterrupt:
         logger.error('Операция прервана пользователем')
-        print('Операция прервана пользователем')
         exit()
     except Exception as e:
-        logger.error(f'Ошибка: {e}')
-        print(f'Ошибка: {e}')
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
         exit()
