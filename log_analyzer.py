@@ -11,11 +11,8 @@ import logging
 import ast
 import gzip
 import itertools
-import os
 import re
 import sys
-import traceback
-from datetime import datetime
 from operator import itemgetter
 from string import Template
 from optparse import OptionParser
@@ -84,7 +81,7 @@ def open_file(config):
     data = {}
     directory = Path(config["LOG_DIR"])
     try:
-        for logs_file in directory.glob('nginx-access-ui.log-*.gz'):
+        for logs_file in directory.glob('nginx-access-ui.log-*'):
             data_name = re.search(r"\d\d\d\d\d\d\d\d", logs_file.as_posix())
             data[logs_file.as_posix()] = data_name.group(0)
         file_data = sorted(data.items(), key=itemgetter(1), reverse=True)[0]
@@ -95,7 +92,7 @@ def open_file(config):
         for reports in Path(config["REPORT_DIR"]).glob("report-*.html"):
             data_report = re.search(r"\d\d\d\d.\d\d.\d\d", reports.as_posix())
             if data_report.group(0)==data_file:
-                logger.exception('Отчёт на сегодня уже готов! Скрипт завершён')
+                logger.error('Отчёт на сегодня уже готов! Скрипт завершён')
                 exit(0)
         return path_file, data_file
     except FileNotFoundError:
@@ -107,18 +104,27 @@ def open_file(config):
         exit()
 
 
-def parser():
+def parser(path, config):
     result, urls = [], []
     all_requests, all_times = 0, 0
     count = {}
-    config = options_parse()
-    path, data_file = open_file(config)
+
     try:
-        with gzip.open(path, 'rt') as data_log:
-            logger.info('Открыт файл лог отчета')
-            logs = data_log.read()
-            count_str = logs.count('\n')
-            logger.info(f'Файл {path} упешно открыт и прочитан')
+        if path[-2:] == 'gz':
+            with gzip.open(path, 'rt') as data_log:
+                logs = data_log.read()
+                count_str = logs.count('\n')
+        elif path[-3:] == 'txt':
+            with open(path, 'rt') as data_log:
+                logs = data_log.read()
+                count_str = logs.count('\n')
+        else:
+            logger.info(f'Файл {path} неизвестного формата')
+            quit()
+        if logs == "":
+            logger.info('Файл логов пустой')
+            quit()
+        logger.info(f'Файл {path} упешно открыт и прочитан')
     except UnicodeEncodeError:
         logger.error('Ошибка кодировки файла логов')
         exit()
@@ -173,7 +179,7 @@ def parser():
                 "time_med": float_cut(median(count[i]))
             })
         logger.info('Данные из лог файла преобразованны в json')
-        return result, data_file, config
+        return result
     except StopIteration:
         logger.error('Ошибка итерации, возможно REPORT_SIZE больше чем количество запросов')
         exit()
@@ -213,7 +219,9 @@ def write_report(result,data_file, config):
 
 if __name__ == "__main__":
     try:
-        result, data_file, config = parser()
+        config = options_parse()
+        path, data_file = open_file(config)
+        result = parser(path,config)
         write_report(result, data_file, config)
     except KeyboardInterrupt:
         logger.error('Операция прервана пользователем')
