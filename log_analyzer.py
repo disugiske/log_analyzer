@@ -84,11 +84,11 @@ def open_file(config):
 
     try:
         for i in directory.iterdir():
-            patch_file = re.search(".*\.gz|.*\.txt", i.as_posix())
+            patch_file = re.search(r".*\.gz|.*\.txt", i.as_posix())
             if patch_file != None:
-                print(patch_file.group(0))
+
                 files.append(patch_file.group(0))
-        print(files)
+
         for logs_file in files:
             data_name = re.search(r"\d\d\d\d\d\d\d\d", logs_file)
             data[logs_file] = data_name.group(0)
@@ -110,7 +110,6 @@ def open_file(config):
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f"Ошибка: {e}, в строке {exc_tb.tb_lineno}")
-        print(data)
         quit()
 
 
@@ -179,6 +178,7 @@ def parser(path, config):
         sorted_count = dict(
             sorted(count.items(), key=lambda x: len(x[1]), reverse=True)
         )
+        print(all_times)
         for i in itertools.islice(sorted_count, 0, int(config["REPORT_SIZE"]) - 1):
             urls_count = len(count[i])
             sum_time = (urls_count / all_requests) * 100
@@ -216,7 +216,6 @@ def write_report(result, data_file, config):
             logger.info("Открыт шаблон отчёта, данные json переданы")
     except FileNotFoundError:
         logger.error("Не найден файл шаблона report.html")
-        print("Не найден файл шаблона report.html")
         quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
