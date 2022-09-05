@@ -68,14 +68,14 @@ def options_parse():
             return config
     except PermissionError:
         logger.error('Не хватает прав доступа чтобы отрыть файл config')
-        exit()
+        quit()
     except FileNotFoundError:
         logger.error('Файл не найден, неверный путь или имя файла config')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
 
 def open_file(config):
     data = {}
@@ -93,15 +93,15 @@ def open_file(config):
             data_report = re.search(r"\d\d\d\d.\d\d.\d\d", reports.as_posix())
             if data_report.group(0)==data_file:
                 logger.error('Отчёт на сегодня уже готов! Скрипт завершён')
-                exit(0)
+                quit(0)
         return path_file, data_file
     except FileNotFoundError:
         logger.error('Файл логов не найден')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
 
 
 def parser(path, config):
@@ -127,17 +127,17 @@ def parser(path, config):
         logger.info(f'Файл {path} упешно открыт и прочитан')
     except UnicodeEncodeError:
         logger.error('Ошибка кодировки файла логов')
-        exit()
+        quit()
     except EOFError:
         logger.error('Неожиданный конец файла логов')
-        exit()
+        quit()
     except PermissionError:
         logger.error('Не хватает прав доступа чтобы отрыть файл логов')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
     try:
         first_parse = re.findall(r"(GET /\S*|POST /\S*)+ +.+ +(\d\.\d{3})", logs)
         for i in first_parse:
@@ -153,15 +153,15 @@ def parser(path, config):
             logger.error(f'Не удалось распарсить {float_cut(err_count)}% логов, проверьте синтаксис')
             if err_count > 50:
                 logger.error('Не удалось рапарсить более 50% логов, проверьте синтаксис. Работа завершена')
-                exit()
+                quit()
     except StopIteration:
         logger.error('В файле логов изменён синтаксис, не найдены $request или $request_time')
-        exit()
+        quit()
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
 
     try:
         sorted_count = dict(sorted(count.items(), key=lambda x: len(x[1]), reverse=True))
@@ -182,11 +182,11 @@ def parser(path, config):
         return result
     except StopIteration:
         logger.error('Ошибка итерации, возможно REPORT_SIZE больше чем количество запросов')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
 
 
 
@@ -200,22 +200,22 @@ def write_report(result,data_file, config):
     except FileNotFoundError:
         logger.error('Не найден файл шаблона report.html')
         print('Не найден файл шаблона report.html')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
     try:
         with open(f'{config["REPORT_DIR"]}/report-{data_file}.html', 'w') as report_out:
             report_out.write(a)
             logger.info('Отчёт сохранён')
     except FileExistsError:
         logger.error('Ошибка создания файла отчёта')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
 
 if __name__ == "__main__":
     try:
@@ -225,8 +225,8 @@ if __name__ == "__main__":
         write_report(result, data_file, config)
     except KeyboardInterrupt:
         logger.error('Операция прервана пользователем')
-        exit()
+        quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
-        exit()
+        quit()
