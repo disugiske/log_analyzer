@@ -81,9 +81,10 @@ def open_file(config):
     data = {}
     directory = Path(config["LOG_DIR"])
     try:
-        for logs_file in directory.glob('nginx-access-ui.log-*'):
+        for logs_file in directory.glob('nginx-access-ui.log-*.gz' or 'nginx-access-ui.log-*.txt'):
             data_name = re.search(r"\d\d\d\d\d\d\d\d", logs_file.as_posix())
             data[logs_file.as_posix()] = data_name.group(0)
+
         file_data = sorted(data.items(), key=itemgetter(1), reverse=True)[0]
         path_file = file_data[0]
         data_file_raw = file_data[1]
@@ -95,12 +96,14 @@ def open_file(config):
                 logger.error('Отчёт на сегодня уже готов! Скрипт завершён')
                 quit(0)
         return path_file, data_file
+
     except FileNotFoundError:
         logger.error('Файл логов не найден')
         quit()
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f'Ошибка: {e}, в строке {exc_tb.tb_lineno}')
+        print(data)
         quit()
 
 

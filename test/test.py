@@ -57,7 +57,7 @@ class FunctionalTest(unittest.TestCase):
         path, date = log_analyzer.open_file(config)
         result = log_analyzer.parser(path, config)
         test_result = {'url': '/export/appinstall_raw/2017-06-29/', 'count': 14929, 'count_perc': '8.381', 'time_sum': '49.980', 'time_perc': '0.012', 'time_avg': '0.003', 'time_max': '0.223', 'time_med': '0.003'}
-        self.assertEqual(result[0], test_result)
+        self.assertTrue(test_result in result[0])
 
     def test_write_report(self):
         config = {
