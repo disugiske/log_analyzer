@@ -16,5 +16,5 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Python Unit Test
       run: |
-        cd tests
+        cd OTUS_pro
         python -m unittest tests/test.py
