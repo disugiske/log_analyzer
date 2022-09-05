@@ -11,6 +11,7 @@ import logging
 import ast
 import gzip
 import itertools
+import os
 import re
 import sys
 from operator import itemgetter
@@ -221,6 +222,11 @@ def write_report(result, data_file, config):
         exc_type, exc_obj, exc_tb = sys.exc_info()
         logger.error(f"Ошибка: {e}, в строке {exc_tb.tb_lineno}")
         quit()
+    try:
+        os.mkdir(config["REPORT_DIR"])
+        logger.info(f"Создана папка {config['REPORT_DIR']}")
+    except:
+        logger.info(f"Папка {config['REPORT_DIR']} уже существует")
     try:
         with open(f'{config["REPORT_DIR"]}/report-{data_file}.html', "w") as report_out:
             report_out.write(a)
