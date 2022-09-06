@@ -25,11 +25,13 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logging.basicConfig(
     filename="analyzer.log",
+    encoding="UTF-8",
     filemode="w",
     format="[%(asctime)s] %(levelname).1s %(message)s",
     datefmt="%d-%b-%y %H:%M:%S",
 )
 handler = logging.StreamHandler(stream=sys.stdout)
+handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname).1s %(message)s"))
 logger.addHandler(handler)
 
 
@@ -159,7 +161,7 @@ def parser(path, config):
                 f"Не удалось распарсить {float_cut(err_count)}% логов, проверьте синтаксис"
             )
             if err_count > 50:
-                logger.error(
+                logger.info(
                     "Не удалось рапарсить более 50% логов, проверьте синтаксис. Работа завершена"
                 )
                 quit()
@@ -178,7 +180,6 @@ def parser(path, config):
         sorted_count = dict(
             sorted(count.items(), key=lambda x: len(x[1]), reverse=True)
         )
-        print(all_times)
         for i in itertools.islice(sorted_count, 0, int(config["REPORT_SIZE"]) - 1):
             urls_count = len(count[i])
             sum_time = (urls_count / all_requests) * 100
