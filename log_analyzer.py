@@ -14,6 +14,7 @@ import itertools
 import os
 import re
 import sys
+import traceback
 from operator import itemgetter
 from string import Template
 from pathlib import Path
@@ -145,7 +146,6 @@ def write_report(template_with_data, data_file):
 
 
 def main(config):
-
     path_file = find_patch(config["LOG_DIR"])
     if path_file == None:
         logger.error("не найдена папка с логами")
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger("logs_analyse")
     logger.setLevel(logging.INFO)
     logging.basicConfig(
         filename="analyzer.log",
@@ -208,16 +208,14 @@ if __name__ == "__main__":
     logger.info("Старт скрипта")
     if args.config:
         logger.info(f"Передан путь к файлу config:{args.config}")
-    parse_config = open_config(args.config)
-    config_result = check_config(parse_config, config)
-    if config_result:
-        logger.info("Файл config успешно прочитан")
     try:
+        parse_config = open_config(args.config)
+        config_result = check_config(parse_config, config)
+        if config_result:
+            logger.info("Файл config успешно прочитан")
         main(config_result)
         logger.info("Отчёт сохранен")
     except KeyboardInterrupt:
         logger.exception("Операция прервана пользователем", exc_info=False)
-        quit()
     except Exception:
-        logger.exception(f"Ошибка:")
-        quit()
+        logger.exception(f"Ошибка!")

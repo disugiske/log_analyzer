@@ -23,9 +23,9 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(os.listdir("tests/reports_test")[0], "report-2017.08.30.html")
         os.remove("tests/reports_test/report-2017.08.30.html")
 
-    def test_main_conf(self):
-        sys.argv[1:] = ["-cconf.txt"]
-        with self.assertRaises(FileNotFoundError):
+    def test_main_logs(self):
+        sys.argv[1:] = ["-cconfig_test.txt"]
+        with self.assertLogs("logs_analyse", level="INFO"):
             runpy.run_module("log_analyzer", run_name="__main__", alter_sys=True)
 
     def test_find_patch(self):
