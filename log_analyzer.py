@@ -14,14 +14,12 @@ import itertools
 import os
 import re
 import sys
-import traceback
-from operator import itemgetter
 from string import Template
 from pathlib import Path
 from statistics import mean, median
 
 
-config = {"REPORT_SIZE": 1000, "REPORT_DIR": "./reports", "LOG_DIR": "./log"}
+config = {"REPORT_SIZE": 1000, "REPORT_DIR": "./reports", "LOG_DIR": "./log", "ERR_LIMIT": 50}
 
 
 def float_cut(obj):
@@ -36,48 +34,36 @@ def open_config(config_path):
     return parse_config
 
 
-def check_config(parse_config, conf):
-    if parse_config.values() == conf.values():
-        return conf
-    else:
-        for i in parse_config:
-            conf[i] = parse_config[i]
-        return conf
+def make_config(parse_config, conf):
+    for i in parse_config:
+        conf[i] = parse_config[i]
+    return conf
 
 
 def find_patch(path_log_dir):
     data = {}
+    max_date = 0
     if not os.path.isdir(path_log_dir):
         return None
     for i in os.listdir(path_log_dir):
-        patch_file = re.search(r".*\.gz|.*\.txt", i)
-        if patch_file != None:
-            data_name = re.search(r"\d\d\d\d\d\d\d\d", patch_file.group(0))
-            data[patch_file.group(0)] = data_name.group(0)
-    file_data = sorted(data.items(), key=itemgetter(1), reverse=True)[0]
-    path_file = f"{path_log_dir}/{file_data[0]}"
-    data_file_raw = file_data[1]
-    data_file = f"{data_file_raw[:4]}.{data_file_raw[4:6]}.{data_file_raw[6:]}"
+        patch_file = re.match(r'^nginx-access-ui\.log-(?P<date>\d{8})(\.gz|.txt)', i)
+        if patch_file is not None:
+            if int(patch_file.group(1)) > int(max_date):
+                max_date = patch_file.group(1)
+                path_file = f"{path_log_dir}/{patch_file.group(0)}"
+    data_file = f"{max_date[:4]}.{max_date[4:6]}.{max_date[6:]}"
     return path_file, data_file
 
 
 def check_today_report(report_dir_patch, data_file):
-    for reports in report_dir_patch.glob("report-*.html"):
-        data_report = re.search(r"\d\d\d\d.\d\d.\d\d", reports.as_posix())
-        if data_report.group(0) == data_file:
-            return True
+    return f"report-{data_file}.html" in os.listdir(report_dir_patch)
 
 
-def open_file(path):
-    if path.endswith(".gz"):
-        with gzip.open(path, "rt") as data_log:
-            for logs in data_log:
-                yield logs
-    elif path.endswith(".txt"):
-        with open(path, "rt") as data_log:
-            for logs in data_log:
-                yield logs
-
+def open_file(log_path):
+    open_fn = gzip.open if log_path.endswith(".gz") else open
+    with open_fn(log_path, "rt") as data_log:
+        for logs in data_log:
+            yield logs
 
 def parse_file(logs):
     urls = []
@@ -125,13 +111,9 @@ def make_report_dir(report_dir):
         return report_dir
 
 
-def open_report_template():
+def make_report(result):
     with open("report.html", "r") as template_report:
         report = template_report.read()
-    return report
-
-
-def make_report(result, report):
     list_dict = []
     template = Template(report)
     for i in result:
@@ -146,27 +128,30 @@ def write_report(template_with_data, data_file):
 
 
 def main(config):
-    path_file = find_patch(config["LOG_DIR"])
-    if path_file == None:
+    path_log_file = find_patch(config["LOG_DIR"])
+    if not path_log_file:
         logger.error("не найдена папка с логами")
         quit(0)
-    check_result = check_today_report(Path(config["REPORT_DIR"]), path_file[1])
+    if not path_log_file[0]:
+        logger.error("В папке логов нет логов")
+        quit(0)
+    check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
     if check_result == True:
         logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
         return
-    logs = open_file(path_file[0])
+    logs = open_file(path_log_file[0])
     if logs == "":
         logger.info("Файл логов пустой")
         return
-    logger.info(f"Файл {path_file[0]} упешно открыт и прочитан")
+    logger.info(f"Файл {path_log_file[0]} упешно открыт и прочитан")
     all_requests, count_str, all_times, count = parse_file(logs)
     err_count = check_parse(all_requests, count_str)
-    if err_count > 50:
+    if err_count > config["ERR_LIMIT"]:
         logger.error(
-            "Не удалось рапарсить более 50% логов, проверьте синтаксис. Работа завершена"
+            f"Не удалось рапарсить более {config['ERR_LIMIT']}% логов, проверьте синтаксис. Работа завершена"
         )
         quit()
-    elif err_count > 0:
+    if err_count > 0:
         logger.info(
             f"Не удалось распарсить {float_cut(err_count)}% логов, проверьте синтаксис"
         )
@@ -175,10 +160,9 @@ def main(config):
     report_dir = make_report_dir(config["REPORT_DIR"])
     if report_dir:
         logger.info(f"Создана папка {report_dir}")
-    report = open_report_template()
     result = make_json(all_requests, all_times, count, config_result["REPORT_SIZE"])
-    template_with_data = make_report(result, report)
-    write_report(template_with_data, path_file[1])
+    template_with_data = make_report(result)
+    write_report(template_with_data, path_log_file[1])
 
 
 if __name__ == "__main__":
@@ -189,7 +173,8 @@ if __name__ == "__main__":
         help="Укажите путь к файлу с config. По умолчанию config:"
         '{"REPORT_SIZE": 1000,'
         '"REPORT_DIR": "./reports",'
-        '"LOG_DIR": "./log_test"}',
+        '"LOG_DIR": "./log_test"},'
+        '"ERR_LIMIT": 50',
     )
     args = parser.parse_args()
 
@@ -210,7 +195,7 @@ if __name__ == "__main__":
         logger.info(f"Передан путь к файлу config:{args.config}")
     try:
         parse_config = open_config(args.config)
-        config_result = check_config(parse_config, config)
+        config_result = make_config(parse_config, config)
         if config_result:
             logger.info("Файл config успешно прочитан")
         main(config_result)
