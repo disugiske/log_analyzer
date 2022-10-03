@@ -20,8 +20,8 @@ class FunctionalTest(unittest.TestCase):
     def test_main(self):
         sys.argv[1:] = ["-cconfig_test.txt"]
         runpy.run_module("log_analyzer", run_name="__main__", alter_sys=True)
-        self.assertEqual(os.listdir("./tests/reports_test")[0], "report-2017.08.30.html")
-        os.remove("./tests/reports_test/report-2017.08.30.html")
+        self.assertEqual(os.listdir("tests/reports_test")[0], "report-2017.08.30.html")
+        os.remove("tests/reports_test/report-2017.08.30.html")
 
     def test_main_logs(self):
         sys.argv[1:] = ["-cconfig_test.txt"]
