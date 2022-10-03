@@ -134,14 +134,10 @@ def main(config):
     if not path_log_file[0]:
         logger.error("В папке логов нет логов")
         quit(0)
-    report_dir = make_report_dir(config["REPORT_DIR"])
-    if report_dir:
-        logger.info(f"Создана папка {report_dir}")
-    else:
-        check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
-        if check_result == True:
-            logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
-            return
+    check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
+    if check_result == True:
+        logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
+        return
     logs = open_file(path_log_file[0])
     if logs == "":
         logger.info("Файл логов пустой")
@@ -160,7 +156,9 @@ def main(config):
         )
     else:
         logger.info("Логи распаршены")
-
+    report_dir = make_report_dir(config["REPORT_DIR"])
+    if report_dir:
+        logger.info(f"Создана папка {report_dir}")
     result = make_json(all_requests, all_times, count, config_result["REPORT_SIZE"])
     template_with_data = make_report(result)
     write_report(template_with_data, path_log_file[1])
