@@ -18,8 +18,12 @@ from string import Template
 from pathlib import Path
 from statistics import mean, median
 
-
-config = {"REPORT_SIZE": 1000, "REPORT_DIR": "./reports", "LOG_DIR": "./log", "ERR_LIMIT": 50}
+config = {
+    "REPORT_SIZE": 1000,
+    "REPORT_DIR": "./reports",
+    "LOG_DIR": "./log",
+    "ERR_LIMIT": 50,
+}
 
 
 def float_cut(obj):
@@ -45,7 +49,7 @@ def find_patch(path_log_dir):
     if not os.path.isdir(path_log_dir):
         return None
     for i in os.listdir(path_log_dir):
-        patch_file = re.match(r'^nginx-access-ui\.log-(?P<date>\d{8})(\.gz|.txt)', i)
+        patch_file = re.match(r"^nginx-access-ui\.log-(?P<date>\d{8})(\.gz|.txt)", i)
         if patch_file is not None:
             if int(patch_file.group(1)) > int(max_date):
                 max_date = patch_file.group(1)
@@ -63,6 +67,7 @@ def open_file(log_path):
     with open_fn(log_path, "rt") as data_log:
         for logs in data_log:
             yield logs
+
 
 def parse_file(logs):
     urls = []
