@@ -41,7 +41,6 @@ def make_config(parse_config, conf):
 
 
 def find_patch(path_log_dir):
-    data = {}
     max_date = 0
     if not os.path.isdir(path_log_dir):
         return None
