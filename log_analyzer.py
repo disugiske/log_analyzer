@@ -30,21 +30,16 @@ def float_cut(obj):
     return f"{obj:.{3}f}"
 
 
-def open_config(config_path):
+def get_config(config_path, conf):
     if config_path is None:
-        return config
+        return conf
     with open(config_path, "r", encoding="utf8") as conf_file:
         parse_config = json.load(conf_file)
-    return parse_config
-
-
-def make_config(parse_config, conf):
-    for i in parse_config:
-        conf[i] = parse_config[i]
+    conf.update(parse_config)
     return conf
 
 
-def find_patch(path_log_dir):
+def find_latest_log(path_log_dir):
     max_date = 0
     if not os.path.isdir(path_log_dir):
         return None
@@ -59,7 +54,7 @@ def find_patch(path_log_dir):
 
 
 def check_today_report(report_dir_patch, data_file):
-    return f"report-{data_file}.html" in os.listdir(report_dir_patch)
+    return os.path.exists(f"{report_dir_patch}/report-{data_file}.html")
 
 
 def open_file(log_path):
@@ -110,9 +105,7 @@ def make_json(all_requests, all_times, count, path_size):
 
 
 def make_report_dir(report_dir):
-    if not os.path.isdir(report_dir):
-        os.mkdir(report_dir)
-        return report_dir
+    os.makedirs(report_dir, exist_ok=True)
 
 
 def make_report(result):
@@ -132,23 +125,20 @@ def write_report(template_with_data, data_file):
 
 
 def main(config):
-    path_log_file = find_patch(config["LOG_DIR"])
+    path_log_file = find_latest_log(config["LOG_DIR"])
     if not path_log_file:
         logger.error("не найдена папка с логами")
         quit(0)
     if not path_log_file[0]:
         logger.error("В папке логов нет логов")
         quit(0)
-    report_dir = make_report_dir(config["REPORT_DIR"])
-    if report_dir:
-        logger.info(f"Создана папка {report_dir}")
-    else:
-        check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
-        if check_result == True:
-            logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
-            return
+    make_report_dir(config["REPORT_DIR"])
+    check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
+    if check_result == True:
+        logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
+        return
     logs = open_file(path_log_file[0])
-    if logs == "":
+    if logs == None:
         logger.info("Файл логов пустой")
         return
     logger.info(f"Файл {path_log_file[0]} упешно открыт и прочитан")
@@ -200,8 +190,7 @@ if __name__ == "__main__":
     if args.config:
         logger.info(f"Передан путь к файлу config:{args.config}")
     try:
-        parse_config = open_config(args.config)
-        config_result = make_config(parse_config, config)
+        config_result = get_config(args.config, config)
         if config_result:
             logger.info("Файл config успешно прочитан")
         main(config_result)
