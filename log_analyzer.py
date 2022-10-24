@@ -104,10 +104,6 @@ def make_json(all_requests, all_times, count, path_size):
         yield result
 
 
-def make_report_dir(report_dir):
-    os.makedirs(report_dir, exist_ok=True)
-
-
 def make_report(result):
     with open("report.html", "r") as template_report:
         report = template_report.read()
@@ -132,13 +128,13 @@ def main(config):
     if not path_log_file[0]:
         logger.error("В папке логов нет логов")
         quit(0)
-    make_report_dir(config["REPORT_DIR"])
+    os.makedirs(config["REPORT_DIR"], exist_ok=True)
     check_result = check_today_report(Path(config["REPORT_DIR"]), path_log_file[1])
     if check_result == True:
         logger.error("Отчёт на сегодня уже готов! Скрипт завершён")
         return
     logs = open_file(path_log_file[0])
-    if logs == None:
+    if logs is None:
         logger.info("Файл логов пустой")
         return
     logger.info(f"Файл {path_log_file[0]} упешно открыт и прочитан")
